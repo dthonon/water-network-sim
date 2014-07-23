@@ -3,6 +3,7 @@
  *
  * This class contains the full description of the network and the methods to work on it
  *
+ * water-network-sim
  * Copyright (c) 2014, Daniel Thonon
  * All rights reserved.
  *
@@ -60,7 +61,7 @@ object CubicMetersPerDay extends VolumeFlowRateUnit {
  *  Each type is described in an inner class and objects are stored in a map
  *
  */
-class NetworkDescription (inputFile : String) extends Logging {
+class NetworkDescription (inputFile : String) extends SimulatedNode with Logging {
   
   val inFile = new File(inputFile)
 
@@ -81,45 +82,13 @@ class NetworkDescription (inputFile : String) extends Logging {
   val hydSim = new HydraulicSim(net, julLogger);
   info("Created Epanet simulation")
 
-  /**
-   * Any type of value, containing
-   * - the computed value, resulting from the simulation
-   * - the measured value, after sensor and acquisition processing
-   * - the ref to the sensor
-   *
-   */
-  class SimulatedValue[A <: Quantity[A]] {
-    var computedValue: A = _ // "Exact" value given by Epanet simulator
-    var sensorValue: A = _ // Value given by the sensor (+noise, drift...)
-    val sensor = new SensorSimulation[A]
-  }
-
-  /**
-   * A  node of the network
-   *
-   */
-  class SimulatedNode {
-    var head = new SimulatedValue[Length] // Epanet 'H[n]' variable, node head.
-    var demand = new SimulatedValue[VolumeFlowRate] // Epanet 'D[n]' variable, node demand.
-    var emitter = new SimulatedValue[VolumeFlowRate] // Epanet 'E[n]' variable, emitter flows
-
-    /**
-     * Pretty print to a string the node description
-     */
-    override def toString() = {
-      ", head=(" + head.computedValue + "->" + head.sensorValue +
-        "), demand=(" + (demand.computedValue toString CubicMetersPerDay) + 
-        "->" + (demand.sensorValue toString CubicMetersPerDay) + ")"
-    }
-  }
-
+ 
   // The map listing the nodes
   var SimulatedNodes: Map[String, SimulatedNode] = Map()
 
   /**
-   * Create a new node and adds it to the nodes map
+   * Create a new node with its id and empty values and adds it to the nodes map
    *
-   * @constructor create a new node with its id and empty values
    * @param id the node identifier, key in the map
    * @return the new node
    */
@@ -131,6 +100,7 @@ class NetworkDescription (inputFile : String) extends Logging {
 
   /**
    * Create the nodes, based on Epanet network description
+   * 
    */
   def createNodes {
     for (node <- hydSim.getnNodes().asScala) {
@@ -139,6 +109,34 @@ class NetworkDescription (inputFile : String) extends Logging {
       info("Network state node ->" + node.getId())
     }
   }
+
+  // The map listing the links
+  var SimulatedLinks: Map[String, SimulatedLink] = Map()
+
+  /**
+   * Create a new link with its id and empty values and adds it to the links map
+   *
+   * @param id the node identifier, key in the map
+   * @return the new node
+   */
+  def newLink(id: String): SimulatedLink = {
+    val res = new SimulatedLink
+    SimulatedLinks.+=(id -> res)
+    res
+  }
+  
+  /**
+   * Create the links, based on Epanet network description
+   * 
+   */
+  def createLinks {
+    for (link <- hydSim.getnLinks().asScala) {
+      // Create a link in the network description
+      val simLink = newLink(link.getLink().getId())
+      info("Network state link ->" + link.getLink().getId())
+    }
+  }
+
   /**
    * Simulate one Epanet step
    */
@@ -152,7 +150,11 @@ class NetworkDescription (inputFile : String) extends Logging {
       simNode.head.computedValue = Meters(node.getSimHead() * 0.3048)
       simNode.demand.computedValue = CubicMetersPerDay(node.getSimDemand() * 28.31685 * 60 * 60 * 24 / 1000)
     }
-  }
+     for (link <- hydSim.getnLinks().asScala) {
+      val simLink = SimulatedLinks(link.getLink().getId())
+      simLink.flow.computedValue = CubicMetersPerDay(link.getSimFlow() * 28.31685 * 60 * 60 * 24 / 1000)
+    }
+ }
 
   /**
    * Simulate the sensors for all computed values
@@ -163,6 +165,9 @@ class NetworkDescription (inputFile : String) extends Logging {
       node.demand.sensorValue = node.demand.sensor.sense(node.demand.computedValue)
       //node.emitter.sensorValue = node.emitter.sensor.sense(node.emitter.computedValue)
     }
+    for ((linkId, link) <- SimulatedLinks) {
+      link.flow.sensorValue = link.flow.sensor.sense(link.flow.computedValue)
+    }
   }
 
   /**
@@ -172,6 +177,8 @@ class NetworkDescription (inputFile : String) extends Logging {
     var str = "\nNetwork:\n"
     for ((nodeId, node) <- SimulatedNodes)
       str = str + "  Node " + nodeId + node.toString() + "\n"
+    for ((linkId, link) <- SimulatedLinks)
+      str = str + "  Link " + linkId + link.toString() + "\n"
     str
   }
 }

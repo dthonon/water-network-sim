@@ -81,6 +81,12 @@ class ModbusSlave extends Logging {
         spi.addRegister(new SimpleRegister(0))
         reg += 1
     } 
+    for ((linkId, link) <- netw.SimulatedLinks) {
+        // Create a register in the modbus map
+        info("Modbus register " + reg + " link flow -> " + linkId)
+        spi.addRegister(new SimpleRegister(0))
+        reg += 1
+    } 
   }
   
   def updateRegisters (netw: NetworkDescription) {

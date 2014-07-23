@@ -48,6 +48,7 @@ object NetworkSimulator extends Logging {
     // Create store for the network values 
     val netw = new NetworkDescription(inFile)
     netw.createNodes
+    netw.createLinks
     
     // Create the modbus slave and add registers
     val modbus = new ModbusSlave

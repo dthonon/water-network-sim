@@ -33,7 +33,7 @@ package net.atos.water.simulator
 import util.Random
 import squants.Quantity
 
-class SensorSimulation[A <: Quantity[A]] {
+class AnalogSensorSimulation[A <: Quantity[A]] {
   
   def sense (value: A): A = {
     value * (1.0 + Random.nextGaussian() * 0.05) // 5% error
