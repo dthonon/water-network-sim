@@ -38,56 +38,56 @@ import squants.motion.VolumeFlowRateUnit
 import squants.motion.CubicMetersPerSecond
 
 /**
+ * Scala version of the Java Link StatType
+ */
+object LinkStatus extends Enumeration {
+  /**
+   * Valve active (partially open).
+   */
+  val ACTIVE = Value(4, "ACTIVE")
+  /**
+   * Closed.
+   */
+  val CLOSED = Value(2, "CLOSED")
+  /**
+   * Tank emptying.
+   */
+  val EMPTYING = Value(9, "EMPTYING")
+  /**
+   * Tank filling.
+   */
+  val FILLING = Value(8, "FILLING")
+  /**
+   * Open.
+   */
+  val OPEN = Value(3, "OPEN")
+  /**
+   * Temporarily closed.
+   */
+  val TEMPCLOSED = Value(1, "TEMPCLOSED")
+  /**
+   * FCV cannot supply flow.
+   */
+  val XFCV = Value(6, "XFCV")
+  /**
+   * Pump exceeds maximum flow.
+   */
+  val XFLOW = Value(5, "XFLOW")
+  /**
+   * Pump cannot deliver head (closed).
+   */
+  val XHEAD = Value(0, "XHEAD")
+  /**
+   * Valve cannot supply pressure.
+   */
+  val XPRESSURE = Value(7, "XPRESSURE")
+
+}
+
+/**
  *
  */
 class SimulatedLink extends SimulatedElement {
-
-  /**
-   * Scale version of the Java Link StatType 
-   */
-  object LinkStatus extends Enumeration {
-        /**
-         * Valve active (partially open).
-         */
-        val ACTIVE = Value(4, "ACTIVE")
-        /**
-         * Closed.
-         */
-        val CLOSED = Value(2, "CLOSED")
-        /**
-         * Tank emptying.
-         */
-        val EMPTYING = Value(9, "EMPTYING")
-        /**
-         * Tank filling.
-         */
-        val FILLING = Value(8, "FILLING")
-        /**
-         * Open.
-         */
-        val OPEN = Value(3, "OPEN")
-        /**
-         * Temporarily closed.
-         */
-        val TEMPCLOSED = Value(1, "TEMPCLOSED")
-        /**
-         * FCV cannot supply flow.
-         */
-        val XFCV = Value(6, "XFCV")
-        /**
-         * Pump exceeds maximum flow.
-         */
-        val XFLOW = Value(5, "XFLOW")
-        /**
-         * Pump cannot deliver head (closed).
-         */
-        val XHEAD = Value(0, "XHEAD")
-        /**
-         * Valve cannot supply pressure.
-         */
-        val XPRESSURE = Value(7, "XPRESSURE")
-
-  }
 
   var first: SimulatedNode = null
   var second: SimulatedNode = null
@@ -99,6 +99,7 @@ class SimulatedLink extends SimulatedElement {
    */
   override def toString() = {
     ", flow=(" + (flow.computedValue toString CubicMetersPerDay) +
-      "->" + (flow.sensorValue toString CubicMetersPerDay) + ")"
+      "->" + (flow.sensorValue toString CubicMetersPerDay) + "), status=(" +
+      status.computedValue + "->" + status.sensorValue + ")"
   }
 }

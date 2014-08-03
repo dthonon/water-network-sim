@@ -33,13 +33,9 @@ package net.atos.water.simulator
 
 import scala.collection.mutable.Map
 import scala.collection.JavaConverters.asScalaBufferConverter
-
-import grizzled.slf4j.Logging
-
 import org.addition.epanet.hydraulic.HydraulicSim
 import org.addition.epanet.network.Network
 import org.addition.epanet.network.io.input.InputParser
-
 import java.io.File
 
 import squants.Quantity
@@ -50,19 +46,24 @@ import squants.motion.VolumeFlowRate
 import squants.motion.VolumeFlowRateUnit
 import squants.motion.CubicMetersPerSecond
 
+import org.slf4j.LoggerFactory
+import ch.qos.logback.core.util.StatusPrinter
+import ch.qos.logback.classic.LoggerContext
+
 object CubicMetersPerDay extends VolumeFlowRateUnit {
-    val symbol = "m³/d"
-    val multiplier = CubicMetersPerSecond.multiplier / (60 * 60 * 24)
+  val symbol = "m³/d"
+  val multiplier = CubicMetersPerSecond.multiplier / (60 * 60 * 24)
 }
-  
 
 /**
  *  Description of the water network: nodes, links...
  *  Each type is described in an inner class and objects are stored in a map
  *
  */
-class NetworkDescription (inputFile : String) extends SimulatedNode with Logging {
-  
+class NetworkDescription(inputFile: String) extends SimulatedNode {
+
+  def logger = LoggerFactory.getLogger(this.getClass().getName())
+
   val inFile = new File(inputFile)
 
   // Epanet values
@@ -70,19 +71,18 @@ class NetworkDescription (inputFile : String) extends SimulatedNode with Logging
   val julLogger =
     java.util.logging.Logger.getLogger("networkSimulator")
 
-  info("Initializing simulation engine Epanet with file: " + inputFile)
+  logger.info("Initializing simulation engine Epanet with file: " + inputFile)
   // Parse Epanet input file
   val parserINP = InputParser.create(Network.FileType.INP_FILE, julLogger)
   parserINP.parse(net, inFile);
-  info(s"Opened net file")
+  logger.debug(s"Opened net file")
   val pMap = net.getPropertiesMap();
   // run infinite
   net.getPropertiesMap().setDuration(java.lang.Long.MAX_VALUE);
   // Create simulation
   val hydSim = new HydraulicSim(net, julLogger);
-  info("Created Epanet simulation")
+  logger.debug("Created Epanet simulation")
 
- 
   // The map listing the nodes
   var SimulatedNodes: Map[String, SimulatedNode] = Map()
 
@@ -100,13 +100,13 @@ class NetworkDescription (inputFile : String) extends SimulatedNode with Logging
 
   /**
    * Create the nodes, based on Epanet network description
-   * 
+   *
    */
   def createNodes {
     for (node <- hydSim.getnNodes().asScala) {
       // Create a node in the network description
       val simNode = newNode(node.getId())
-      info("Network state node ->" + node.getId())
+      logger.debug("Network state node ->" + node.getId())
     }
   }
 
@@ -124,16 +124,16 @@ class NetworkDescription (inputFile : String) extends SimulatedNode with Logging
     SimulatedLinks.+=(id -> res)
     res
   }
-  
+
   /**
    * Create the links, based on Epanet network description
-   * 
+   *
    */
   def createLinks {
     for (link <- hydSim.getnLinks().asScala) {
       // Create a link in the network description
       val simLink = newLink(link.getLink().getId())
-      info("Network state link ->" + link.getLink().getId())
+      logger.debug("Network state link ->" + link.getLink().getId())
     }
   }
 
@@ -142,7 +142,7 @@ class NetworkDescription (inputFile : String) extends SimulatedNode with Logging
    */
   def simStep {
     var delay = hydSim.simulateSingleStep();
-    info("Stepped for " + delay + " sec., Simulation time: " + hydSim.getHtime())
+    logger.debug("Stepped for " + delay + " sec., Simulation time: " + hydSim.getHtime())
 
     // Transfer results to NetworkState
     for (node <- hydSim.getnNodes().asScala) {
@@ -150,11 +150,12 @@ class NetworkDescription (inputFile : String) extends SimulatedNode with Logging
       simNode.head.computedValue = Meters(node.getSimHead() * 0.3048)
       simNode.demand.computedValue = CubicMetersPerDay(node.getSimDemand() * 28.31685 * 60 * 60 * 24 / 1000)
     }
-     for (link <- hydSim.getnLinks().asScala) {
+    for (link <- hydSim.getnLinks().asScala) {
       val simLink = SimulatedLinks(link.getLink().getId())
+      simLink.status.computedValue = LinkStatus(link.getSimStatus().id)
       simLink.flow.computedValue = CubicMetersPerDay(link.getSimFlow() * 28.31685 * 60 * 60 * 24 / 1000)
     }
- }
+  }
 
   /**
    * Simulate the sensors for all computed values
@@ -166,6 +167,7 @@ class NetworkDescription (inputFile : String) extends SimulatedNode with Logging
       //node.emitter.sensorValue = node.emitter.sensor.sense(node.emitter.computedValue)
     }
     for ((linkId, link) <- SimulatedLinks) {
+      link.status.sensorValue = link.status.sensor.sense(link.status.computedValue)
       link.flow.sensorValue = link.flow.sensor.sense(link.flow.computedValue)
     }
   }

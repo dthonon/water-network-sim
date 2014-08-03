@@ -37,44 +37,115 @@ import org.addition.epanet.hydraulic.HydraulicSim
 import org.addition.epanet.network.Network
 import org.addition.epanet.network.io.input.InputParser
 
-import grizzled.slf4j.Logging
+import ch.qos.logback.classic.Level;
+import org.slf4j.LoggerFactory
+import ch.qos.logback.core.util.StatusPrinter
+import ch.qos.logback.classic.LoggerContext
 
-object NetworkSimulator extends Logging {
+/**
+ * Configuration of the command line parameters
+ */
+case class Config(
+  inFile: String = "",
+  maxCycles: Int = 10,
+  stepTime: Int = 1,
+  port: Int = 22225,
+  verbose: Boolean = true,
+  debug: Boolean = false,
+  trace: Boolean = false)
+
+/**
+ * Main
+ */
+object NetworkSimulator {
 
   def main(args: Array[String]): Unit = {
-    val inFile = args(0)
-    val maxCycles = args(1).toInt
- 
-    // Create store for the network values 
-    val netw = new NetworkDescription(inFile)
-    netw.createNodes
-    netw.createLinks
-    
-    // Create the modbus slave and add registers
-    val modbus = new ModbusSlave
-    modbus.initModbus
-    modbus.createRegisters(netw)
 
-    for (i <- 1 to maxCycles) {
-      // Run one simulation step
-      netw.simStep
-      
-      // Simulate sensors
-      netw.simSensors
+    // Logger for this class
+    def logger: ch.qos.logback.classic.Logger =
+      LoggerFactory.getLogger(this.getClass().getName()).asInstanceOf[ch.qos.logback.classic.Logger]
+    // Root logger, used to set logging level for all loggers
+    def rootLogger: ch.qos.logback.classic.Logger =
+      LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME).asInstanceOf[ch.qos.logback.classic.Logger]
+    rootLogger.setLevel(Level.INFO)
 
-      // Print simulated state
-      info(netw.toString)
+    //StatusPrinter.print((LoggerFactory.getILoggerFactory).asInstanceOf[LoggerContext])
+    logger.info("Starting")
 
-      // Update modbus map
-      modbus.updateRegisters(netw)
-      
-      Thread.sleep(1000)
-      info("Waited 1s")
+    // Evaluate the command line parameters
+    val parser = new scopt.OptionParser[Config]("NetworkSimulator") {
+      head("NetworkSimulator", "0.x")
+      opt[String]('i', "inFile") required () valueName ("<file>") action { (x, c) =>
+        c.copy(inFile = x)
+      } text ("inFile is a required file property")
+      opt[Int]('m', "maxCycles") action { (x, c) =>
+        c.copy(maxCycles = x)
+      } text ("maxCycles indicates the number of simulation cycles")
+      opt[Int]('s', "stepTime") action { (x, c) =>
+        c.copy(stepTime = x)
+      } text ("stepTime indicates number of sec. of each cycle")
+
+      opt[Int]('p', "port") action { (x, c) =>
+        c.copy(port = x)
+      } text ("Modbus slave TCP/IP port")
+
+      opt[Unit]("verbose") action { (_, c) =>
+        c.copy(verbose = true)
+      } text ("Log main simulation steps")
+      opt[Unit]("debug") hidden () action { (_, c) =>
+        c.copy(debug = true)
+      } text ("Log detailed simulation steps (lot of text)")
+      opt[Unit]("trace") hidden () action { (_, c) =>
+        c.copy(trace = true)
+      } text ("Log very detailed simulation steps (lot of text)")
+
+      note("NetworkSimulation hydraulic network simulation\n")
+      help("help") text ("prints this usage text")
     }
 
-    modbus.shutdownModbus
-    info("Stopped modbus listener")
-    System.exit(0)
+    // parser.parse returns Option[C]
+    parser.parse(args, Config()) map { config =>
+
+      // Setting logging level
+      if (config.verbose ) rootLogger.setLevel(Level.INFO)
+      if (config.debug ) rootLogger.setLevel(Level.DEBUG)
+      if (config.trace ) rootLogger.setLevel(Level.TRACE)
+
+      // Create store for the network values 
+      val netw = new NetworkDescription(config.inFile)
+      netw.createNodes
+      netw.createLinks
+
+      // Create the modbus slave and add registers
+      val modbus = new ModbusSlave
+      modbus.initModbus(config.port)
+      modbus.createRegisters(netw)
+
+      for (i <- 1 to config.maxCycles) {
+        logger.info("Running simulation step " + i + " after " + config.stepTime + " sec.")
+        // Run one simulation step
+        netw.simStep
+
+        // Simulate sensors
+        netw.simSensors
+
+        // Print simulated state
+        logger.trace(netw.toString)
+
+        // Update modbus map
+        modbus.updateRegisters(netw)
+
+        Thread.sleep(1000 * config.stepTime)
+      }
+
+      modbus.shutdownModbus
+      logger.info("Stopped modbus listener")
+      System.exit(0)
+
+    } getOrElse {
+      // arguments are bad, error message will have been displayed
+      logger.error("Bad arguments")
+    }
 
   }
 }

@@ -33,23 +33,24 @@ package net.atos.water.simulator
 
 import scala.collection.JavaConverters.asScalaBufferConverter
 
-
 import net.wimpi.modbus.ModbusCoupler
 import net.wimpi.modbus.net.ModbusTCPListener
 import net.wimpi.modbus.procimg.SimpleProcessImage
 import net.wimpi.modbus.procimg.SimpleRegister
 
-import grizzled.slf4j.Logging
+import org.slf4j.LoggerFactory
+import ch.qos.logback.core.util.StatusPrinter
+import ch.qos.logback.classic.LoggerContext
 
-class ModbusSlave extends Logging {
+class ModbusSlave {
+  def logger = LoggerFactory.getLogger(this.getClass().getName())
   var spi: SimpleProcessImage = new SimpleProcessImage()
   var listener: ModbusTCPListener = null
 
-  def initModbus {
-      // Initializing modbus interface
-    info("Initializing modbus interface")
+  def initModbus(port: Int = 22225) {
+    // Initializing modbus interface
+    logger.info("Initializing modbus interface")
     //1. Basic variables
-    val port: Int = 22225
     //2. Prepare a process image
     //			spi.addDigitalOut(new SimpleDigitalOut(true))
     //			spi.addDigitalIn(new SimpleDigitalIn(true))
@@ -61,46 +62,58 @@ class ModbusSlave extends Logging {
     //4. Create a listener with 3 threads in pool
     listener = new ModbusTCPListener(3);
     listener.setPort(port);
-    info("Starting Modbus listener on " + port);
+    logger.info("Starting Modbus listener on " + port);
     listener.start();
-    info("Created modbus interface")
+    logger.debug("Created modbus interface")
   }
-  
+
   def shutdownModbus {
-     listener.stop();   
+    listener.stop();
   }
-  
-  def createRegisters (netw: NetworkDescription) {
+
+  def createRegisters(netw: NetworkDescription) {
     var reg = 0
     for ((nodeId, node) <- netw.SimulatedNodes) {
-        // Create a register in the modbus map
-        info("Modbus register " + reg + " node head -> " + nodeId)
-        spi.addRegister(new SimpleRegister(0))
-        reg += 1
-        info("Modbus register " + reg + " node demand -> " + nodeId)
-        spi.addRegister(new SimpleRegister(0))
-        reg += 1
-    } 
+      // Create 2 registers in the modbus map
+      logger.debug("Modbus register " + reg + " node head -> " + nodeId)
+      spi.addRegister(new SimpleRegister(0))
+      reg += 1
+      logger.debug("Modbus register " + reg + " node demand -> " + nodeId)
+      spi.addRegister(new SimpleRegister(0))
+      reg += 1
+    }
     for ((linkId, link) <- netw.SimulatedLinks) {
-        // Create a register in the modbus map
-        info("Modbus register " + reg + " link flow -> " + linkId)
-        spi.addRegister(new SimpleRegister(0))
-        reg += 1
-    } 
+      // Create 2 registers in the modbus map
+      logger.debug("Modbus register " + reg + " link status -> " + linkId)
+      spi.addRegister(new SimpleRegister(0))
+      reg += 1
+      logger.debug("Modbus register " + reg + " link flow -> " + linkId)
+      spi.addRegister(new SimpleRegister(0))
+      reg += 1
+    }
   }
-  
-  def updateRegisters (netw: NetworkDescription) {
-        // Update Modbus map
-      var reg = 0
-      for ((nodeId, node) <- netw.SimulatedNodes) {
-        val dem = Math.round(100 * node.demand.sensorValue.to(CubicMetersPerDay)).asInstanceOf[Int]
-        // info("Setting register " + reg + " to " + dem)
-        spi.getRegister(reg).setValue(dem)
-        reg += 1
-        val head = Math.round(node.head.sensorValue.value).asInstanceOf[Int]
-        // info("Setting register " + reg + " to " + head)
-        spi.getRegister(reg).setValue(head)
-        reg += 1
-      }
+
+  def updateRegisters(netw: NetworkDescription) {
+    // Update Modbus map
+    var reg = 0
+    for ((nodeId, node) <- netw.SimulatedNodes) {
+      val dem = Math.round(100 * node.demand.sensorValue.to(CubicMetersPerDay)).asInstanceOf[Int]
+      logger.trace("Setting register " + reg + " to " + dem)
+      spi.getRegister(reg).setValue(dem)
+      reg += 1
+      val head = Math.round(node.head.sensorValue.value).asInstanceOf[Int]
+      logger.trace("Setting register " + reg + " to " + head)
+      spi.getRegister(reg).setValue(head)
+      reg += 1
+    }
+    for ((linkId, link) <- netw.SimulatedLinks) {
+      logger.trace("Setting register " + reg + " to " + link.status.sensorValue.id)
+      spi.getRegister(reg).setValue(link.status.sensorValue.id)
+      reg += 1
+      val flow = Math.round(100 * link.flow.sensorValue.to(CubicMetersPerDay)).asInstanceOf[Int]
+      logger.trace("Setting register " + reg + " to " + flow)
+      spi.getRegister(reg).setValue(flow)
+      reg += 1
+    }
   }
 }
