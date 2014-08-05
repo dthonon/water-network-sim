@@ -12,6 +12,18 @@
   <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/ch.qos.logback/logback-classic/jars/logback-classic-1.1.2.jar"/>
   <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/com.squants/squants_2.11/jars/squants_2.11-0.4.2.jar"/>
   <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/com.github.scopt/scopt_2.11/jars/scopt_2.11-3.2.0.jar"/>
+  <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/com.norbitltd/spoiwo/jars/spoiwo-1.0.3.jar"/>
+  <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/org.apache.poi/poi/jars/poi-3.9.jar"/>
+  <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/commons-codec/commons-codec/jars/commons-codec-1.5.jar"/>
+  <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/org.apache.poi/poi-ooxml/jars/poi-ooxml-3.9.jar"/>
+  <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/org.apache.poi/poi-ooxml-schemas/jars/poi-ooxml-schemas-3.9.jar"/>
+  <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/org.apache.xmlbeans/xmlbeans/jars/xmlbeans-2.3.0.jar"/>
+  <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/stax/stax-api/jars/stax-api-1.0.1.jar"/>
+  <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/dom4j/dom4j/jars/dom4j-1.6.1.jar"/>
+  <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/xml-apis/xml-apis/jars/xml-apis-1.0.b2.jar"/>
+  <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/commons-logging/commons-logging/jars/commons-logging-1.1.1.jar"/>
+  <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/joda-time/joda-time/jars/joda-time-2.3.jar"/>
+  <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/org.joda/joda-convert/jars/joda-convert-1.6.jar"/>
   <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/org.scalatest/scalatest_2.11/jars/scalatest_2.11-2.1.6.jar"/>
   <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/org.scala-lang.modules/scala-parser-combinators_2.11/bundles/scala-parser-combinators_2.11-1.0.1.jar"/>
   <classpathentry kind="lib" path="/home/daniel/.ivy2/cache/org.scala-lang.modules/scala-xml_2.11/bundles/scala-xml_2.11-1.0.1.jar"/>

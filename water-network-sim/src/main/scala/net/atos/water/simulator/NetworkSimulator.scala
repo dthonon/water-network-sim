@@ -49,6 +49,7 @@ case class Config(
   inFile: String = "",
   maxCycles: Int = 10,
   stepTime: Int = 1,
+  modbusMap: String = "",
   port: Int = 22225,
   verbose: Boolean = true,
   debug: Boolean = false,
@@ -77,7 +78,7 @@ object NetworkSimulator {
       head("NetworkSimulator", "0.x")
       opt[String]('i', "inFile") required () valueName ("<file>") action { (x, c) =>
         c.copy(inFile = x)
-      } text ("inFile is a required file property")
+      } text ("EPAnet input file (required)")
       opt[Int]('m', "maxCycles") action { (x, c) =>
         c.copy(maxCycles = x)
       } text ("maxCycles indicates the number of simulation cycles")
@@ -85,6 +86,9 @@ object NetworkSimulator {
         c.copy(stepTime = x)
       } text ("stepTime indicates number of sec. of each cycle")
 
+      opt[String]('b', "modbusMap") valueName ("<file>") action { (x, c) =>
+        c.copy(modbusMap = x)
+      } text ("EPAnet input file (required)")
       opt[Int]('p', "port") action { (x, c) =>
         c.copy(port = x)
       } text ("Modbus slave TCP/IP port")
@@ -119,7 +123,7 @@ object NetworkSimulator {
       // Create the modbus slave and add registers
       val modbus = new ModbusSlave
       modbus.initModbus(config.port)
-      modbus.createRegisters(netw)
+      modbus.createRegisters(netw, config.modbusMap)
 
       for (i <- 1 to config.maxCycles) {
         logger.info("Running simulation step " + i + " after " + config.stepTime + " sec.")

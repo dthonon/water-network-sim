@@ -42,11 +42,29 @@ import org.slf4j.LoggerFactory
 import ch.qos.logback.core.util.StatusPrinter
 import ch.qos.logback.classic.LoggerContext
 
+import org.apache.poi.hssf.usermodel.HSSFHeader;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel._;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.WorkbookUtil;
+import org.apache.poi.xssf.usermodel._;
+import org.apache.poi.hssf.usermodel.HeaderFooter;
+
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Calendar;
+import java.util.Date;
+
 class ModbusSlave {
   def logger = LoggerFactory.getLogger(this.getClass().getName())
   var spi: SimpleProcessImage = new SimpleProcessImage()
   var listener: ModbusTCPListener = null
 
+  /**
+   * Initialize modbus TCP/IP interface
+   *
+   * @param port TCP/IP port for listeners
+   */
   def initModbus(port: Int = 22225) {
     // Initializing modbus interface
     logger.info("Initializing modbus interface")
@@ -67,35 +85,114 @@ class ModbusSlave {
     logger.debug("Created modbus interface")
   }
 
+  /**
+   * Stop modbus interface and listeners (release TCP/IP port)
+   */
   def shutdownModbus {
     listener.stop();
   }
 
-  def createRegisters(netw: NetworkDescription) {
-    var reg = 0
+  /**
+   * Create the modbus map (one big map for the moment):
+   *  - create registers for all network elements: nodes, links
+   *  - if required, output this map to an Excel spreadsheet
+   *
+   * @param netw
+   * @param modbusMap
+   */
+  def createRegisters(netw: NetworkDescription, modbusMap: String = "") {
+    var reg = 0 // register number
+    var mapOut = false // true only if map output required
+    val wb: XSSFWorkbook = new XSSFWorkbook // Create Excel workbook
+    val sheet: Sheet = wb.createSheet("Modbus map"); // Create Excel sheet
+
+    if (!modbusMap.isEmpty()) {
+      // Required modbusMap export, check name
+      if (modbusMap.endsWith(".xlsx")) {
+        logger.info("Creating modbus map file: " + modbusMap)
+        mapOut = true
+        
+        // Create header row
+        val row = sheet.createRow(0)
+        row.createCell(0).setCellValue("Register")
+        row.createCell(1).setCellValue("Network structure")
+        row.createCell(2).setCellValue("Value type")
+        row.createCell(3).setCellValue("Element ID")
+        row.createCell(4).setCellValue("Scale")
+      } else {
+        logger.warn("Incorrect modbusMap filename (should end with .xlsx" + modbusMap)
+      }
+    }
+    // Registers for node output
     for ((nodeId, node) <- netw.SimulatedNodes) {
       // Create 2 registers in the modbus map
       logger.debug("Modbus register " + reg + " node head -> " + nodeId)
+      if (mapOut) { // Add Excel row
+        val row = sheet.createRow(reg + 1)
+        row.createCell(0).setCellValue(reg)
+        row.createCell(1).setCellValue("Node")
+        row.createCell(2).setCellValue("Head")
+        row.createCell(3).setCellValue(nodeId)
+        row.createCell(4).setCellValue(1)
+      }
       spi.addRegister(new SimpleRegister(0))
       reg += 1
       logger.debug("Modbus register " + reg + " node demand -> " + nodeId)
+      if (mapOut) { // Add Excel row
+        val row = sheet.createRow(reg + 1)
+        row.createCell(0).setCellValue(reg)
+        row.createCell(1).setCellValue("Node")
+        row.createCell(2).setCellValue("Demand")
+        row.createCell(3).setCellValue(nodeId)
+        row.createCell(4).setCellValue(100)
+      }
       spi.addRegister(new SimpleRegister(0))
       reg += 1
     }
+
+    // Registers for link values
     for ((linkId, link) <- netw.SimulatedLinks) {
       // Create 2 registers in the modbus map
       logger.debug("Modbus register " + reg + " link status -> " + linkId)
+      if (mapOut) { // Add Excel row
+        val row = sheet.createRow(reg + 1)
+        row.createCell(0).setCellValue(reg)
+        row.createCell(1).setCellValue("Link")
+        row.createCell(2).setCellValue("Status")
+        row.createCell(3).setCellValue(linkId)
+        row.createCell(4).setCellValue(0)
+      }
       spi.addRegister(new SimpleRegister(0))
       reg += 1
       logger.debug("Modbus register " + reg + " link flow -> " + linkId)
+      if (mapOut) { // Add Excel row
+        val row = sheet.createRow(reg + 1)
+        row.createCell(0).setCellValue(reg)
+        row.createCell(1).setCellValue("Link")
+        row.createCell(2).setCellValue("Flow")
+        row.createCell(3).setCellValue(linkId)
+        row.createCell(4).setCellValue(100)
+      }
       spi.addRegister(new SimpleRegister(0))
       reg += 1
     }
+    if (mapOut) {
+      val fileOut = new FileOutputStream(modbusMap)
+      wb.write(fileOut);
+      fileOut.close();
+
+    }
   }
 
+  /**
+   * Copy sensors values to the modbus map
+   *
+   * @param netw Network containing sensor data
+   */
   def updateRegisters(netw: NetworkDescription) {
-    // Update Modbus map
-    var reg = 0
+    var reg = 0 // Register number
+
+    // Node values
     for ((nodeId, node) <- netw.SimulatedNodes) {
       val dem = Math.round(100 * node.demand.sensorValue.to(CubicMetersPerDay)).asInstanceOf[Int]
       logger.trace("Setting register " + reg + " to " + dem)
@@ -106,6 +203,8 @@ class ModbusSlave {
       spi.getRegister(reg).setValue(head)
       reg += 1
     }
+
+    // Link values
     for ((linkId, link) <- netw.SimulatedLinks) {
       logger.trace("Setting register " + reg + " to " + link.status.sensorValue.id)
       spi.getRegister(reg).setValue(link.status.sensorValue.id)

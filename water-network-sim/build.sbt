@@ -21,4 +21,6 @@ libraryDependencies += "com.squants" %% "squants" % "0.4.2"
 
 libraryDependencies += "com.github.scopt" %% "scopt" % "3.2.0"
 
+libraryDependencies += "com.norbitltd" % "spoiwo" % "1.0.3"
+
 
