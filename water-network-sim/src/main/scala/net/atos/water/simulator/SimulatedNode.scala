@@ -29,6 +29,8 @@
  */
 package net.atos.water.simulator
 
+import org.addition.epanet.hydraulic.structures.SimulationNode
+
 import squants.Quantity
 import squants.space.Length
 import squants.space.Meters
@@ -40,10 +42,15 @@ import squants.motion.CubicMetersPerSecond
 /**
  *
  */
-class SimulatedNode extends SimulatedElement {
-  var head = new AnalogValue[Length] // Epanet 'H[n]' variable, node head.
-  var demand = new AnalogValue[VolumeFlowRate] // Epanet 'D[n]' variable, node demand.
-  var emitter = new AnalogValue[VolumeFlowRate] // Epanet 'E[n]' variable, emitter flows
+class SimulatedNode(node: SimulationNode) extends SimulatedElement {
+  
+  val elementType = NetworkElement.Node
+  
+  val simNode = node // keep track of Epanet simulation node
+  
+  var head = new AnalogValue[Length]("Head") // Epanet 'H[n]' variable, node head.
+  var demand = new AnalogValue[VolumeFlowRate]("Demand") // Epanet 'D[n]' variable, node demand.
+  var emitter = new AnalogValue[VolumeFlowRate]("Emitter") // Epanet 'E[n]' variable, emitter flows
 
   /**
    * Pretty print to a string the node description

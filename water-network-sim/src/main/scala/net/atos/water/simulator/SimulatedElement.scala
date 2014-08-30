@@ -1,6 +1,6 @@
 /**
  * Top parent to all network elements. Abstract.
- * 
+ *
  * water-network-sim
  * Copyright (c) 2014, Daniel Thonon
  * All rights reserved.
@@ -30,8 +30,29 @@
 package net.atos.water.simulator
 
 /**
- *
+ * Template for any network element
  */
 trait SimulatedElement {
+
+  object NetworkElement extends Enumeration {
+    val Control = Value
+    val Curve = Value
+    val Demand = Value
+    val Field = Value
+    val Label = Value
+    val Link = Value
+    val Node = Value
+    val Network = Value
+    val Pattern = Value
+    val Point = Value
+    val Pump = Value
+    val Rule = Value
+    val Source = Value
+    val Valve = Value
+    val Tank = Value
+  }
+
+  val elementType: NetworkElement.Value // Each class must define its type
+
   override def toString() = ""
 }

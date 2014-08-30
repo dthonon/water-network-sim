@@ -33,14 +33,13 @@
  */
 package net.atos.water.simulator
 
-import grizzled.slf4j.Logging
-
 import squants.Quantity
 
 /**
  *
  */
-class AnalogValue[A <: Quantity[A]] {
+class AnalogValue[A <: Quantity[A]](valueType: String) {
+  var name = valueType
   var computedValue: A = _ // "Exact" value given by Epanet simulator
   var sensorValue: A = _ // Value given by the sensor (+noise, drift...)
   val sensor = new AnalogSensorSimulation[A]

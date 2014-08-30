@@ -33,6 +33,8 @@ import java.io.File
 
 import scala.collection.JavaConverters.asScalaBufferConverter
 
+import net.wimpi.modbus.Modbus
+
 import org.addition.epanet.hydraulic.HydraulicSim
 import org.addition.epanet.network.Network
 import org.addition.epanet.network.io.input.InputParser
@@ -49,8 +51,9 @@ case class Config(
   inFile: String = "",
   maxCycles: Int = 10,
   stepTime: Int = 1,
+  logFile: String = "",
   modbusMap: String = "",
-  port: Int = 22225,
+  port: Int = Modbus.DEFAULT_PORT,
   verbose: Boolean = true,
   debug: Boolean = false,
   trace: Boolean = false)
@@ -85,10 +88,13 @@ object NetworkSimulator {
       opt[Int]('s', "stepTime") action { (x, c) =>
         c.copy(stepTime = x)
       } text ("stepTime indicates number of sec. of each cycle")
+      opt[String]('i', "logFile") valueName ("<file>") action { (x, c) =>
+        c.copy(logFile = x)
+      } text ("File logging the simulation step results")
 
       opt[String]('b', "modbusMap") valueName ("<file>") action { (x, c) =>
         c.copy(modbusMap = x)
-      } text ("EPAnet input file (required)")
+      } text ("Output file listing modbus map")
       opt[Int]('p', "port") action { (x, c) =>
         c.copy(port = x)
       } text ("Modbus slave TCP/IP port")
@@ -116,34 +122,41 @@ object NetworkSimulator {
       if (config.trace ) rootLogger.setLevel(Level.TRACE)
 
       // Create store for the network values 
-      val netw = new NetworkDescription(config.inFile)
+      val netw = new NetworkDescription(config.inFile, config.logFile )
       netw.createNodes
       netw.createLinks
 
       // Create the modbus slave and add registers
       val modbus = new ModbusSlave
-      modbus.initModbus(config.port)
+      modbus.initialize(config.port)
       modbus.createRegisters(netw, config.modbusMap)
 
       for (i <- 1 to config.maxCycles) {
         logger.info("Running simulation step " + i + " after " + config.stepTime + " sec.")
         // Run one simulation step
-        netw.simStep
+        netw.simNetwork
 
         // Simulate sensors
         netw.simSensors
 
         // Print simulated state
-        logger.trace(netw.toString)
+        if (logger.isTraceEnabled()) logger.trace(netw.toString)
 
+        // Retrieve modbus map and look for commands from master
+        // after the first step
+        if (i > 1) {
+          modbus.readRegisters(netw)
+        }
+        
         // Update modbus map
         modbus.updateRegisters(netw)
 
         Thread.sleep(1000 * config.stepTime)
       }
 
-      modbus.shutdownModbus
-      logger.info("Stopped modbus listener")
+      modbus.shutdown
+      netw.shutdown
+      logger.info("Stopped network simulator and modbus interface")
       System.exit(0)
 
     } getOrElse {

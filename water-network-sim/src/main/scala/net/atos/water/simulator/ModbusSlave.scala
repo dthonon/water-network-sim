@@ -37,6 +37,8 @@ import net.wimpi.modbus.ModbusCoupler
 import net.wimpi.modbus.net.ModbusTCPListener
 import net.wimpi.modbus.procimg.SimpleProcessImage
 import net.wimpi.modbus.procimg.SimpleRegister
+import net.wimpi.modbus.procimg.SimpleInputRegister
+import net.wimpi.modbus.Modbus
 
 import org.slf4j.LoggerFactory
 import ch.qos.logback.core.util.StatusPrinter
@@ -55,6 +57,13 @@ import java.io.IOException;
 import java.util.Calendar;
 import java.util.Date;
 
+/**
+ * Modbus slave methods:
+ * - initialize: Creates the modbus interface
+ * - shutdown: Ends modbus interface
+ * - createRegisters: Creates modbus map
+ * - updateRegisters: Copies sensor values to modbus map
+ */
 class ModbusSlave {
   def logger = LoggerFactory.getLogger(this.getClass().getName())
   var spi: SimpleProcessImage = new SimpleProcessImage()
@@ -65,7 +74,7 @@ class ModbusSlave {
    *
    * @param port TCP/IP port for listeners
    */
-  def initModbus(port: Int = 22225) {
+  def initialize(port: Int = Modbus.DEFAULT_PORT) {
     // Initializing modbus interface
     logger.info("Initializing modbus interface")
     //1. Basic variables
@@ -88,7 +97,7 @@ class ModbusSlave {
   /**
    * Stop modbus interface and listeners (release TCP/IP port)
    */
-  def shutdownModbus {
+  def shutdown {
     listener.stop();
   }
 
@@ -130,20 +139,20 @@ class ModbusSlave {
       if (mapOut) { // Add Excel row
         val row = sheet.createRow(reg + 1)
         row.createCell(0).setCellValue(reg)
-        row.createCell(1).setCellValue("Node")
-        row.createCell(2).setCellValue("Head")
-        row.createCell(3).setCellValue(nodeId)
+        row.createCell(1).setCellValue(node.elementType.toString())
+        row.createCell(2).setCellValue(node.head.name)
+        row.createCell(3).setCellValue(nodeId.getNode().getId())
         row.createCell(4).setCellValue(1)
       }
-      spi.addRegister(new SimpleRegister(0))
+      spi.addRegister(new SimpleInputRegister(0))
       reg += 1
       logger.debug("Modbus register " + reg + " node demand -> " + nodeId)
       if (mapOut) { // Add Excel row
         val row = sheet.createRow(reg + 1)
         row.createCell(0).setCellValue(reg)
-        row.createCell(1).setCellValue("Node")
-        row.createCell(2).setCellValue("Demand")
-        row.createCell(3).setCellValue(nodeId)
+        row.createCell(1).setCellValue(node.elementType.toString())
+        row.createCell(2).setCellValue(node.demand.name)
+        row.createCell(3).setCellValue(nodeId.getNode().getId())
         row.createCell(4).setCellValue(100)
       }
       spi.addRegister(new SimpleRegister(0))
@@ -157,9 +166,9 @@ class ModbusSlave {
       if (mapOut) { // Add Excel row
         val row = sheet.createRow(reg + 1)
         row.createCell(0).setCellValue(reg)
-        row.createCell(1).setCellValue("Link")
-        row.createCell(2).setCellValue("Status")
-        row.createCell(3).setCellValue(linkId)
+        row.createCell(1).setCellValue(link.elementType.toString())
+        row.createCell(2).setCellValue(link.status.name)
+        row.createCell(3).setCellValue(linkId.getLink().getId())
         row.createCell(4).setCellValue(0)
       }
       spi.addRegister(new SimpleRegister(0))
@@ -168,12 +177,12 @@ class ModbusSlave {
       if (mapOut) { // Add Excel row
         val row = sheet.createRow(reg + 1)
         row.createCell(0).setCellValue(reg)
-        row.createCell(1).setCellValue("Link")
-        row.createCell(2).setCellValue("Flow")
-        row.createCell(3).setCellValue(linkId)
+        row.createCell(1).setCellValue(link.elementType.toString())
+        row.createCell(2).setCellValue(link.flow.name)
+        row.createCell(3).setCellValue(linkId.getLink().getId())
         row.createCell(4).setCellValue(100)
       }
-      spi.addRegister(new SimpleRegister(0))
+      spi.addRegister(new SimpleInputRegister(0))
       reg += 1
     }
     if (mapOut) {
@@ -215,4 +224,38 @@ class ModbusSlave {
       reg += 1
     }
   }
+    
+  /**
+   * Read modbus map to detect changes due to master requestss
+   *
+   * @param netw Network containing sensor data
+   */
+  def readRegisters(netw: NetworkDescription) {
+    var reg = 0 // Register number
+
+    // Node values
+    for ((nodeId, node) <- netw.SimulatedNodes) {
+      val dem = spi.getRegister(reg).getValue()
+      logger.trace("Getting register " + reg + " = " + dem)
+      reg += 1
+      val head = spi.getRegister(reg).getValue()
+      logger.trace("Getting register " + reg + " = " + head)
+      reg += 1
+    }
+
+    // Link values
+    for ((linkId, link) <- netw.SimulatedLinks) {
+      val status = spi.getRegister(reg).getValue()
+      logger.trace("Getting register " + reg + " = " + status)
+      reg += 1
+      if (link.status.sensorValue.id != status) {
+        logger.debug("Link " + linkId + " status change to " + status)
+        link.status = LinkStatus(status)
+      }
+      val flow = spi.getRegister(reg).getValue()
+      logger.trace("Getting register " + reg + " = " + flow)
+      reg += 1
+    }
+  }
+
 }

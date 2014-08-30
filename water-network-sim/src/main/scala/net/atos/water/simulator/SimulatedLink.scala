@@ -29,6 +29,9 @@
  */
 package net.atos.water.simulator
 
+import org.addition.epanet.hydraulic.structures.SimulationLink
+import org.addition.epanet.network.structures.Link
+
 import squants.Quantity
 import squants.space.Length
 import squants.space.Meters
@@ -36,6 +39,10 @@ import squants.space.Feet
 import squants.motion.VolumeFlowRate
 import squants.motion.VolumeFlowRateUnit
 import squants.motion.CubicMetersPerSecond
+
+import org.slf4j.LoggerFactory
+import ch.qos.logback.core.util.StatusPrinter
+import ch.qos.logback.classic.LoggerContext
 
 /**
  * Scala version of the Java Link StatType
@@ -85,15 +92,74 @@ object LinkStatus extends Enumeration {
 }
 
 /**
- *
+ * Scala version of Type of link
  */
-class SimulatedLink extends SimulatedElement {
+object LinkType extends Enumeration {
+  /**
+   * Pipe with check valve.
+   */
+  val CV = Value(0, "CV")
+  /**
+   * Flow control valve.
+   */
+  val FCV = Value(6, "FCV")
+  /**
+   * General purpose valve.
+   */
+  val GPV = Value(8, "GPV")
+  /**
+   * Pressure breaker valve.
+   */
+  val PBV = Value(5, "PBV")
+  /**
+   * Regular pipe.
+   */
+  val PIPE = Value(1, "PIPE")
+  /**
+   * Pressure reducing valve.
+   */
+  val PRV = Value(3, "PRV")
+  /**
+   * Pressure sustaining valve.
+   */
+  val PSV = Value(4, "PSV")
+  /**
+   * Pump.
+   */
+  val PUMP = Value(2, "PUMP")
+  /**
+   * Throttle control valve.
+   */
+  val TCV = Value(7, "TCV")
+}
 
-  var first: SimulatedNode = null
-  var second: SimulatedNode = null
-  var status = new DigitalValue[LinkStatus.Value] // Epanet 'S[k]', link current status
-  var flow = new AnalogValue[VolumeFlowRate] // Epanet ''Q[k]', link flow value
+/**
+ * Link, interface to EPAnet Link
+ */
+class SimulatedLink(link: SimulationLink) extends SimulatedElement {
 
+  def logger = LoggerFactory.getLogger(this.getClass().getName())
+
+  val elementType = NetworkElement.Link
+
+  val simLink = link // Keep track of Epanet simulation link
+  
+//  var first: SimulatedNode = null
+//  var second: SimulatedNode = null
+  var status = new DigitalValue[LinkStatus.Value]("Status") // Epanet 'S[k]', link current status
+  var flow = new AnalogValue[VolumeFlowRate]("Flow") // Epanet ''Q[k]', link flow value
+
+  /**
+   * Override status setter to push new state to network simulator
+   * @param newStatus updated status
+   */
+  def status_=(newStatus: LinkStatus.Value) {
+    logger.debug("Changing link status from " + status.computedValue + 
+        " to " + newStatus + ", Epanet StatType = " + Link.StatType.valueOf(newStatus.toString()))
+    status.computedValue = newStatus
+    simLink.setSimStatus(Link.StatType.valueOf(newStatus.toString()))
+    
+  }
   /**
    * Pretty print to a string the node description
    */
